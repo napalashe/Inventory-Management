@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, session, redirect, url_for
+from flask import Flask, request, jsonify, session, redirect, url_for, render_template
 from flask_bcrypt import Bcrypt
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin
@@ -36,26 +36,34 @@ class InventoryItem(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-@app.route('/register', methods=['POST'])
+@app.route('/register', methods=['GET', 'POST'])
 def register():
-    data = request.get_json()
-    hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
-    new_user = User(username=data['username'], email=data['email'], password=hashed_password)
-    db.session.add(new_user)
-    db.session.commit()
-    return jsonify(message="User registered successfully"), 201
+    if request.method == 'POST':
+        username = request.form['username']
+        email = request.form['email']
+        password = request.form['password']
+        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+        new_user = User(username=username, email=email, password=hashed_password)
+        db.session.add(new_user)
+        db.session.commit()
+        return redirect(url_for('home'))
+    return render_template('register.html')
 
-@app.route('/login', methods=['POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
-    data = request.get_json()
-    user = User.query.filter_by(username=data['username']).first()
-    if user and bcrypt.check_password_hash(user.password, data['password']):
-        login_user(user)
-        session['username'] = user.username
-        session['_user_id'] = user.id
-        session.permanent = True
-        return jsonify(message="Login successful"), 200
-    return jsonify(message="Invalid credentials"), 401
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        user = User.query.filter_by(username=username).first()
+        if user and bcrypt.check_password_hash(user.password, password):
+            login_user(user)
+            session['username'] = user.username
+            session['_user_id'] = user.id
+            session.permanent = True
+            return redirect(url_for('dashboard'))
+        else:
+            return "Invalid credentials", 401
+    return render_template('login.html')
 
 @app.route('/logout')
 @login_required
@@ -68,22 +76,27 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    return jsonify(message=f"Welcome {session['username']} to your dashboard!")
+    user_id = session['_user_id']
+    items = InventoryItem.query.filter_by(user_id=user_id).all()
+    return render_template('dashboard.html', username=session['username'], items=items)
 
 @app.route('/inventory', methods=['POST'])
 @login_required
 def create_item():
-    data = request.get_json()
+    name = request.form['name']
+    description = request.form['description']
+    quantity = request.form['quantity']
+    price = request.form['price']
     new_item = InventoryItem(
-        name=data['name'],
-        description=data['description'],
-        quantity=data['quantity'],
-        price=data['price'],
+        name=name,
+        description=description,
+        quantity=quantity,
+        price=price,
         user_id=session['_user_id']
     )
     db.session.add(new_item)
     db.session.commit()
-    return jsonify(message="Inventory item created successfully"), 201
+    return redirect(url_for('dashboard'))
 
 @app.route('/inventory', methods=['GET'])
 @login_required
@@ -135,6 +148,11 @@ def delete_item(item_id):
     db.session.delete(item)
     db.session.commit()
     return jsonify(message="Inventory item deleted successfully"), 200
+
+@app.route('/')
+def home():
+    return render_template('index.html')
+
 
 with app.app_context():
     db.create_all()
