@@ -40,7 +40,6 @@ def load_user(user_id):
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        print(request.form)  
         username = request.form['username']
         email = request.form['email']
         password = request.form['password']
@@ -48,7 +47,14 @@ def register():
         new_user = User(username=username, email=email, password=hashed_password)
         db.session.add(new_user)
         db.session.commit()
-        return redirect(url_for('home'))
+        return jsonify(
+            message="User registered successfully",
+            user={
+                "id": new_user.id,
+                "username": new_user.username,
+                "email": new_user.email
+            }
+        ), 201
     return render_template('register.html')
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -80,7 +86,17 @@ def logout():
 def dashboard():
     user_id = session['_user_id']
     items = InventoryItem.query.filter_by(user_id=user_id).all()
-    return render_template('dashboard.html', username=session['username'], items=items)
+    items_list = [{
+        "id": item.id,
+        "name": item.name,
+        "description": item.description,
+        "quantity": item.quantity,
+        "price": item.price
+    } for item in items]
+    return jsonify(
+        message=f"Welcome {session['username']} to your dashboard",
+        items=items_list
+    ), 200
 
 
 @app.route('/inventory', methods=['POST'])
@@ -88,8 +104,8 @@ def dashboard():
 def create_item():
     name = request.form['name']
     description = request.form['description']
-    quantity = request.form['quantity']
-    price = request.form['price']
+    quantity = int(request.form['quantity'])
+    price = float(request.form['price'])
     new_item = InventoryItem(
         name=name,
         description=description,
@@ -99,7 +115,17 @@ def create_item():
     )
     db.session.add(new_item)
     db.session.commit()
-    return redirect(url_for('dashboard'))
+    return jsonify(
+        message="Inventory item created successfully",
+        item={
+            "id": new_item.id,
+            "name": new_item.name,
+            "description": new_item.description,
+            "quantity": new_item.quantity,
+            "price": new_item.price,
+            "user_id": new_item.user_id
+        }
+    ), 201
 
 @app.route('/update_item/<int:item_id>', methods=['POST'])
 @login_required
