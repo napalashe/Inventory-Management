@@ -1,10 +1,11 @@
-from flask import Flask, request, jsonify, session, redirect, url_for, render_template
+from flask import Flask, request, session, redirect, url_for, render_template, jsonify
 from flask_bcrypt import Bcrypt
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin
 import os
 import secrets
 from datetime import timedelta
+
 
 app = Flask(__name__)
 
@@ -39,6 +40,7 @@ def load_user(user_id):
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
+        print(request.form)  
         username = request.form['username']
         email = request.form['email']
         password = request.form['password']
@@ -71,7 +73,7 @@ def logout():
     logout_user()
     session.pop('username', None)
     session.pop('_user_id', None)
-    return jsonify(message="Logout successful"), 200
+    return redirect(url_for('home'))
 
 @app.route('/dashboard')
 @login_required
@@ -79,6 +81,7 @@ def dashboard():
     user_id = session['_user_id']
     items = InventoryItem.query.filter_by(user_id=user_id).all()
     return render_template('dashboard.html', username=session['username'], items=items)
+
 
 @app.route('/inventory', methods=['POST'])
 @login_required
@@ -98,18 +101,33 @@ def create_item():
     db.session.commit()
     return redirect(url_for('dashboard'))
 
-@app.route('/inventory', methods=['GET'])
+@app.route('/update_item/<int:item_id>', methods=['POST'])
 @login_required
-def get_items():
-    user_id = session['_user_id']
-    items = InventoryItem.query.filter_by(user_id=user_id).all()
-    return jsonify(items=[{
-        'id': item.id,
-        'name': item.name,
-        'description': item.description,
-        'quantity': item.quantity,
-        'price': item.price
-    } for item in items]), 200
+def update_item(item_id):
+    item = InventoryItem.query.get_or_404(item_id)
+    if item.user_id != int(session['_user_id']):
+        return "Unauthorized access", 403
+    item.name = request.form['name']
+    item.quantity = request.form['quantity']
+    item.price = request.form['price']
+    db.session.commit()
+    return redirect(url_for('dashboard'))
+
+@app.route('/delete_item/<int:item_id>', methods=['POST'])
+@login_required
+def delete_item(item_id):
+    item = InventoryItem.query.get_or_404(item_id)
+    if item.user_id != int(session['_user_id']):
+        return "Unauthorized access", 403
+    db.session.delete(item)
+    db.session.commit()
+    return redirect(url_for('dashboard'))
+
+app.route('/')
+
+@app.route('/')
+def home():
+    return render_template('index.html')
 
 @app.route('/inventory/<int:item_id>', methods=['GET'])
 @login_required
@@ -124,34 +142,6 @@ def get_item(item_id):
         quantity=item.quantity,
         price=item.price
     ), 200
-
-@app.route('/inventory/<int:item_id>', methods=['PUT'])
-@login_required
-def update_item(item_id):
-    item = InventoryItem.query.get_or_404(item_id)
-    if item.user_id != int(session['_user_id']):
-        return jsonify(message="Unauthorized access"), 403
-    data = request.get_json()
-    item.name = data.get('name', item.name)
-    item.description = data.get('description', item.description)
-    item.quantity = data.get('quantity', item.quantity)
-    item.price = data.get('price', item.price)
-    db.session.commit()
-    return jsonify(message="Inventory item updated successfully"), 200
-
-@app.route('/inventory/<int:item_id>', methods=['DELETE'])
-@login_required
-def delete_item(item_id):
-    item = InventoryItem.query.get_or_404(item_id)
-    if item.user_id != int(session['_user_id']):
-        return jsonify(message="Unauthorized access"), 403
-    db.session.delete(item)
-    db.session.commit()
-    return jsonify(message="Inventory item deleted successfully"), 200
-
-@app.route('/')
-def home():
-    return render_template('index.html')
 
 
 with app.app_context():
