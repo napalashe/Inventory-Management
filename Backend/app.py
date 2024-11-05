@@ -57,6 +57,40 @@ def register():
         ), 201
     return render_template('register.html')
 
+@app.route('/update_user', methods=['POST'])
+@login_required
+def update_user():
+    user_id = session['_user_id']
+    user = User.query.get_or_404(user_id)
+    
+    username = request.form.get('username', user.username)
+    email = request.form.get('email', user.email)
+    
+    user.username = username
+    user.email = email
+    db.session.commit()
+    
+    return jsonify(
+        message="User information updated successfully",
+        user={
+            "id": user.id,
+            "username": user.username,
+            "email": user.email
+        }
+    ), 200
+
+@app.route('/delete_user', methods=['DELETE'])
+@login_required
+def delete_user():
+    user_id = session['_user_id']
+    user = User.query.get_or_404(user_id)
+    
+    db.session.delete(user)
+    db.session.commit()
+    
+    return jsonify(message="User account deleted successfully"), 200
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -137,9 +171,18 @@ def update_item(item_id):
     item.quantity = request.form['quantity']
     item.price = request.form['price']
     db.session.commit()
-    return redirect(url_for('dashboard'))
+    return jsonify(
+        message="Inventory item created successfully",
+        item={
+            
+            "name": item.name,
+            
+            "quantity": item.quantity,
+            "price": item.price,
+        }
+    ), 201
 
-@app.route('/delete_item/<int:item_id>', methods=['POST'])
+@app.route('/delete_item/<int:item_id>', methods=['DELETE'])
 @login_required
 def delete_item(item_id):
     item = InventoryItem.query.get_or_404(item_id)
@@ -147,7 +190,9 @@ def delete_item(item_id):
         return "Unauthorized access", 403
     db.session.delete(item)
     db.session.commit()
-    return redirect(url_for('dashboard'))
+    return jsonify(
+        message = "Inventory item deleted."
+    )
 
 @app.route('/')
 def home():
@@ -166,7 +211,21 @@ def get_item(item_id):
         quantity=item.quantity,
         price=item.price
     ), 200
-
+@app.route('/get_all_items', methods=['GET'])
+@login_required
+def get_all_items():
+    user_id = session['_user_id']
+    items = InventoryItem.query.filter_by(user_id=user_id).all()
+    
+    items_list = [{
+        "id": item.id,
+        "name": item.name,
+        "description": item.description,
+        "quantity": item.quantity,
+        "price": item.price
+    } for item in items]
+    
+    return jsonify(items=items_list), 200
 
 with app.app_context():
     db.create_all()
