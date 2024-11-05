@@ -123,8 +123,6 @@ def delete_item(item_id):
     db.session.commit()
     return redirect(url_for('dashboard'))
 
-app.route('/')
-
 @app.route('/')
 def home():
     return render_template('index.html')
