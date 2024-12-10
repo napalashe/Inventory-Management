@@ -54,7 +54,7 @@ def register():
     db.session.commit()
     return jsonify(message="User registered successfully"), 201
 
-@app.route('/update_user', methods=['POST'])
+@app.route('/update_user', methods=['PUT'])
 @login_required
 def update_user():
     user_id = session['_user_id']
@@ -66,7 +66,14 @@ def update_user():
     user.username = username
     user.email = email
     db.session.commit()
-    return jsonify(message="User information updated successfully"), 200
+    return jsonify(
+        message="User information updated successfully",
+        user={
+            "id": user.id,
+            "username": user.username,
+            "email": user.email
+        }
+    ), 200
 
 @app.route('/delete_user', methods=['DELETE'])
 @login_required
@@ -131,15 +138,15 @@ def create_item():
     db.session.commit()
     return jsonify(message="Inventory item created successfully"), 201
 
-@app.route('/update_item/<int:item_id>', methods=['POST'])
+@app.route('/update_item/<int:item_id>', methods=['PUT'])
 @login_required
 def update_item(item_id):
     item = InventoryItem.query.get_or_404(item_id)
     if item.user_id != int(session['_user_id']):
         return jsonify(message="Unauthorized access"), 403
-    name = request.form.get('name')
-    quantity = request.form.get('quantity')
-    price = request.form.get('price')
+    name = request.form.get('name', item.name)
+    quantity = request.form.get('quantity', item.quantity)
+    price = request.form.get('price', item.price)
     if not name or not quantity or not price:
         return jsonify(message="Name, quantity, and price are required"), 400
     try:
@@ -151,7 +158,14 @@ def update_item(item_id):
     item.quantity = quantity
     item.price = price
     db.session.commit()
-    return jsonify(message="Inventory item updated successfully"), 200
+    return jsonify(
+        message="Inventory item updated successfully",
+        item={
+            "name": item.name,
+            "quantity": item.quantity,
+            "price": item.price,
+        }
+    ), 200
 
 @app.route('/delete_item/<int:item_id>', methods=['DELETE'])
 @login_required
