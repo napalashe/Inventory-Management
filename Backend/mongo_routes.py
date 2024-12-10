@@ -9,6 +9,7 @@ def mongo_register():
     username = data.get('username')
     email = data.get('email')
     password = data.get('password')
+    age = data.get('age')
 
     if user_collection.find_one({"email": email}):
         return jsonify({"message": "Email already exists"}), 400
@@ -16,7 +17,8 @@ def mongo_register():
     user_id = user_collection.insert_one({
         "username": username,
         "email": email,
-        "password": password
+        "password": password,
+        "age": age
     }).inserted_id
 
     return jsonify({"message": "User registered successfully", "user_id": str(user_id)}), 201
