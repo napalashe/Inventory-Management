@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from mongodb_config import user_collection, inventory_collection
+from bson.objectid import ObjectId
 
 mongo_routes = Blueprint("mongo_routes", __name__)
 
@@ -20,6 +21,7 @@ def mongo_register():
         "password": password,
         "age": age
     }).inserted_id
+    print(f"Inserted user: {user_id}")
 
     return jsonify({"message": "User registered successfully", "user_id": str(user_id)}), 201
 
@@ -39,6 +41,16 @@ def mongo_add_inventory():
     }).inserted_id
 
     return jsonify({"message": "Inventory item added successfully", "item_id": str(item_id)}), 201
+
+@mongo_routes.route('/mongo_update_inventory/<item_id>', methods=['POST'])
+def mongo_update_inventory(item_id):
+    data = request.json
+    update_data = {k: v for k, v in data.items()}
+    result = inventory_collection.update_one(
+        {"_id": ObjectId(item_id)},
+        {"$set": update_data}
+    )
+    return jsonify({"message": "Inventory item updated", "matched_count": result.matched_count}), 200
 
 @mongo_routes.route('/mongo_get_inventory', methods=['GET'])
 def mongo_get_inventory():
